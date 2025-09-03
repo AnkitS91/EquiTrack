@@ -114,7 +114,12 @@ public class PositionServiceJPATest {
 
         // Then
         List<com.equitrack.model.Position> positions = positionService.getPositions();
-        assertEquals(0, positions.size()); // Position should be removed
+        assertEquals(1, positions.size()); // Position with 0 quantity should be kept
+
+        // Verify the position has 0 quantity
+        com.equitrack.model.Position position = positions.get(0);
+        assertEquals("REL", position.getSecurityCode());
+        assertEquals(0, position.getQuantity());
 
         List<com.equitrack.model.Trade> trades = positionService.getTrades();
         assertEquals(1, trades.size());
@@ -138,12 +143,12 @@ public class PositionServiceJPATest {
 
         // Then
         List<com.equitrack.model.Position> positions = positionService.getPositions();
-        assertEquals(2, positions.size()); // ITC position with 0 quantity is deleted
+        assertEquals(3, positions.size()); // All positions including ITC with 0 quantity are kept
 
         // Expected final positions:
         // REL: +60 (Updated from 50 to 60)
         // INF: +50 (70 Buy - 20 Sell)
-        // ITC: 0 (Cancelled trade - not stored in database)
+        // ITC: 0 (Cancelled trade - kept in database with 0 quantity)
 
         Optional<com.equitrack.model.Position> relPosition = positions.stream()
             .filter(p -> "REL".equals(p.getSecurityCode()))
@@ -157,11 +162,12 @@ public class PositionServiceJPATest {
         assertTrue(infPosition.isPresent());
         assertEquals(50, infPosition.get().getQuantity());
 
-        // Verify ITC position is not present (deleted when quantity became 0)
+        // Verify ITC position is present with 0 quantity
         Optional<com.equitrack.model.Position> itcPosition = positions.stream()
             .filter(p -> "ITC".equals(p.getSecurityCode()))
             .findFirst();
-        assertFalse(itcPosition.isPresent());
+        assertTrue(itcPosition.isPresent());
+        assertEquals(0, itcPosition.get().getQuantity());
     }
 
     @Test
@@ -246,9 +252,10 @@ public class PositionServiceJPATest {
         Optional<com.equitrack.model.Trade> found = positionService.getTradeById(1L);
         assertFalse(found.isPresent());
 
-        // Position should also be removed
+        // Position should be kept with 0 quantity
         List<com.equitrack.model.Position> positions = positionService.getPositions();
-        assertEquals(0, positions.size());
+        assertEquals(1, positions.size());
+        assertEquals(0, positions.get(0).getQuantity());
     }
 
     @Test

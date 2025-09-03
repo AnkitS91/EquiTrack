@@ -1,224 +1,241 @@
 import React, { useState } from 'react';
 import {
-  Box,
-  TextField,
-  Button,
-  FormControl,
-  InputLabel,
+  Form,
+  Input,
   Select,
-  MenuItem,
+  Button,
+  Card,
   Typography,
-  Paper,
-  Grid,
+  Space,
+  Row,
+  Col,
+  Divider,
   Alert,
-} from '@mui/material';
-import { Add, Clear } from '@mui/icons-material';
+  InputNumber,
+  message
+} from 'antd';
+import {
+  PlusOutlined,
+  ClearOutlined,
+  SaveOutlined,
+  InfoCircleOutlined
+} from '@ant-design/icons';
 import { Transaction } from '../types';
 
+const { Title, Text } = Typography;
+const { Option } = Select;
+
 interface TransactionFormProps {
-  onSubmit: (transaction: Omit<Transaction, 'transactionId'>) => Promise<void>;
+  onSubmit: (transaction: Omit<Transaction, 'transactionId'>) => void;
   onClear: () => void;
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ onSubmit, onClear }) => {
-  const [formData, setFormData] = useState({
-    tradeId: '',
-    version: '',
-    securityCode: '',
-    quantity: '',
-    action: '',
-    side: '',
-  });
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.tradeId) newErrors.tradeId = 'Trade ID is required';
-    if (!formData.version) newErrors.version = 'Version is required';
-    if (!formData.securityCode) newErrors.securityCode = 'Security Code is required';
-    if (!formData.quantity) newErrors.quantity = 'Quantity is required';
-    if (!formData.action) newErrors.action = 'Action is required';
-    if (!formData.side) newErrors.side = 'Side is required';
-
-    if (formData.quantity && isNaN(Number(formData.quantity))) {
-      newErrors.quantity = 'Quantity must be a number';
-    }
-
-    if (formData.tradeId && isNaN(Number(formData.tradeId))) {
-      newErrors.tradeId = 'Trade ID must be a number';
-    }
-
-    if (formData.version && isNaN(Number(formData.version))) {
-      newErrors.version = 'Version must be a number';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-
-    setIsSubmitting(true);
+  const handleSubmit = async (values: any) => {
+    setLoading(true);
     try {
-      await onSubmit({
-        tradeId: Number(formData.tradeId),
-        version: Number(formData.version),
-        securityCode: formData.securityCode.toUpperCase(),
-        quantity: Number(formData.quantity),
-        action: formData.action as 'INSERT' | 'UPDATE' | 'CANCEL',
-        side: formData.side as 'Buy' | 'Sell',
-      });
+      const transaction: Omit<Transaction, 'transactionId'> = {
+        tradeId: values.tradeId,
+        version: values.version,
+        securityCode: values.securityCode.toUpperCase(),
+        quantity: values.quantity,
+        action: values.action,
+        side: values.side,
+      };
 
-      // Reset form on success
-      setFormData({
-        tradeId: '',
-        version: '',
-        securityCode: '',
-        quantity: '',
-        action: '',
-        side: '',
-      });
+      await onSubmit(transaction);
+      form.resetFields();
+      message.success('Transaction submitted successfully!');
     } catch (error) {
-      console.error('Error submitting transaction:', error);
+      message.error('Failed to submit transaction');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
   const handleClear = () => {
-    setFormData({
-      tradeId: '',
-      version: '',
-      securityCode: '',
-      quantity: '',
-      action: '',
-      side: '',
-    });
-    setErrors({});
+    form.resetFields();
     onClear();
+    message.info('Form cleared');
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+  const handleSecurityCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.toUpperCase();
+    form.setFieldsValue({ securityCode: value });
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Add New Transaction
-      </Typography>
-      
-      <Box component="form" onSubmit={handleSubmit}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={2}>
-            <TextField
-              fullWidth
-              label="Trade ID"
-              value={formData.tradeId}
-              onChange={(e) => handleInputChange('tradeId', e.target.value)}
-              error={!!errors.tradeId}
-              helperText={errors.tradeId}
-              type="number"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <TextField
-              fullWidth
-              label="Version"
-              value={formData.version}
-              onChange={(e) => handleInputChange('version', e.target.value)}
-              error={!!errors.version}
-              helperText={errors.version}
-              type="number"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <TextField
-              fullWidth
-              label="Security Code"
-              value={formData.securityCode}
-              onChange={(e) => handleInputChange('securityCode', e.target.value)}
-              error={!!errors.securityCode}
-              helperText={errors.securityCode}
-              placeholder="e.g., REL, ITC, INF"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <TextField
-              fullWidth
-              label="Quantity"
-              value={formData.quantity}
-              onChange={(e) => handleInputChange('quantity', e.target.value)}
-              error={!!errors.quantity}
-              helperText={errors.quantity}
-              type="number"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth error={!!errors.action}>
-              <InputLabel>Action</InputLabel>
-              <Select
-                value={formData.action}
+    <Card>
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <div>
+          <Title level={3}>
+            <PlusOutlined style={{ marginRight: 8 }} />
+            Add New Transaction
+          </Title>
+          <Text type="secondary">
+            Create a new transaction to update your positions. All fields are required.
+          </Text>
+        </div>
+
+        <Alert
+          message="Transaction Guidelines"
+          description={
+            <ul style={{ margin: 0, paddingLeft: 16 }}>
+              <li><strong>INSERT:</strong> Creates a new trade</li>
+              <li><strong>UPDATE:</strong> Modifies an existing trade</li>
+              <li><strong>CANCEL:</strong> Cancels an existing trade</li>
+              <li>Security codes are automatically converted to uppercase</li>
+              <li>Quantities can be positive (Buy) or negative (Sell)</li>
+            </ul>
+          }
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+        />
+
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{
+            action: 'INSERT',
+            side: 'Buy',
+            version: 1,
+            quantity: 1
+          }}
+        >
+          <Row gutter={[12, 12]}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                label="Trade ID"
+                name="tradeId"
+                rules={[
+                  { required: true, message: 'Please enter Trade ID' },
+                  { type: 'number', min: 1, message: 'Trade ID must be a positive number' }
+                ]}
+              >
+                <InputNumber
+                  placeholder="Enter Trade ID"
+                  style={{ width: '100%' }}
+                  min={1}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={12}>
+              <Form.Item
+                label="Version"
+                name="version"
+                rules={[
+                  { required: true, message: 'Please enter Version' },
+                  { type: 'number', min: 1, message: 'Version must be a positive number' }
+                ]}
+              >
+                <InputNumber
+                  placeholder="Enter Version"
+                  style={{ width: '100%' }}
+                  min={1}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={12}>
+              <Form.Item
+                label="Security Code"
+                name="securityCode"
+                rules={[
+                  { required: true, message: 'Please enter Security Code' },
+                  { min: 1, max: 10, message: 'Security Code must be between 1 and 10 characters' }
+                ]}
+              >
+                <Input
+                  placeholder="e.g., REL, ITC, INF"
+                  onChange={handleSecurityCodeChange}
+                  maxLength={10}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={12}>
+              <Form.Item
+                label="Quantity"
+                name="quantity"
+                rules={[
+                  { required: true, message: 'Please enter Quantity' },
+                  { type: 'number', min: 1, message: 'Quantity must be a positive number' }
+                ]}
+              >
+                <InputNumber
+                  placeholder="Enter Quantity"
+                  style={{ width: '100%' }}
+                  min={1}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={12}>
+              <Form.Item
                 label="Action"
-                onChange={(e) => handleInputChange('action', e.target.value)}
+                name="action"
+                rules={[{ required: true, message: 'Please select Action' }]}
               >
-                <MenuItem value="INSERT">INSERT</MenuItem>
-                <MenuItem value="UPDATE">UPDATE</MenuItem>
-                <MenuItem value="CANCEL">CANCEL</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth error={!!errors.side}>
-              <InputLabel>Side</InputLabel>
-              <Select
-                value={formData.side}
+                <Select placeholder="Select Action">
+                  <Option value="INSERT">INSERT - Create new trade</Option>
+                  <Option value="UPDATE">UPDATE - Modify existing trade</Option>
+                  <Option value="CANCEL">CANCEL - Cancel existing trade</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} sm={12}>
+              <Form.Item
                 label="Side"
-                onChange={(e) => handleInputChange('side', e.target.value)}
+                name="side"
+                rules={[{ required: true, message: 'Please select Side' }]}
               >
-                <MenuItem value="Buy">Buy</MenuItem>
-                <MenuItem value="Sell">Sell</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-        
-        <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-          <Button
-            type="submit"
-            variant="contained"
-            startIcon={<Add />}
-            disabled={isSubmitting}
-            sx={{ minWidth: 120 }}
-          >
-            {isSubmitting ? 'Adding...' : 'Add Transaction'}
-          </Button>
-          
-          <Button
-            variant="outlined"
-            startIcon={<Clear />}
-            onClick={handleClear}
-            disabled={isSubmitting}
-          >
-            Clear
-          </Button>
-        </Box>
-      </Box>
-    </Paper>
+                <Select placeholder="Select Side">
+                  <Option value="Buy">Buy</Option>
+                  <Option value="Sell">Sell</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Divider />
+
+          <Form.Item>
+            <Space size="middle">
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={<SaveOutlined />}
+                loading={loading}
+                size="large"
+              >
+                Submit Transaction
+              </Button>
+              <Button
+                icon={<ClearOutlined />}
+                onClick={handleClear}
+                size="large"
+              >
+                Clear Form
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+
+        <Alert
+          message="Transaction Processing"
+          description="Transactions are processed immediately and will update your positions in real-time. You can view the updated positions on the dashboard."
+          type="success"
+          showIcon
+        />
+      </Space>
+    </Card>
   );
 };
 

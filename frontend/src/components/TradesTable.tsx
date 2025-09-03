@@ -1,145 +1,328 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
+  Card,
   Typography,
-  Box,
-} from '@mui/material';
-import { CheckCircle, Cancel, Edit } from '@mui/icons-material';
+  Space,
+  Tag,
+  Button,
+  Input,
+  Select,
+  Row,
+  Col,
+  Statistic,
+  Empty,
+  Tooltip,
+  Badge
+} from 'antd';
+import {
+  SearchOutlined,
+  ReloadOutlined,
+  FilterOutlined,
+  EyeOutlined,
+  HistoryOutlined,
+  RiseOutlined,
+  FallOutlined
+} from '@ant-design/icons';
 import { Trade } from '../types';
+import type { ColumnsType } from 'antd/es/table';
+import { useResponsive } from '../hooks/useResponsive';
+
+const { Title, Text } = Typography;
+const { Option } = Select;
+const { Search } = Input;
 
 interface TradesTableProps {
   trades: Trade[];
 }
 
 const TradesTable: React.FC<TradesTableProps> = ({ trades }) => {
-  const getActionIcon = (trade: Trade) => {
-    if (trade.isCancelled) {
-      return <Cancel color="error" />;
-    }
-    return <CheckCircle color="success" />;
-  };
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sideFilter, setSideFilter] = useState<string>('all');
+  const { isMobile, isSmallScreen } = useResponsive();
 
-  const getActionLabel = (trade: Trade) => {
-    if (trade.isCancelled) {
-      return 'CANCELLED';
-    }
-    return 'ACTIVE';
-  };
 
-  const getActionColor = (trade: Trade) => {
-    if (trade.isCancelled) {
-      return 'error';
-    }
-    return 'success';
-  };
 
-  const getSideColor = (side: string) => {
-    return side === 'Buy' ? 'success' : 'error';
-  };
-
-  if (trades.length === 0) {
-    return (
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Trades
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          No trades found. Add some transactions to see trades here.
-        </Typography>
-      </Paper>
+  const getSideTag = (side: string) => {
+    return side === 'Buy' ? (
+      <Tag color="success" icon={<RiseOutlined />}>BUY</Tag>
+    ) : (
+      <Tag color="error" icon={<FallOutlined />}>SELL</Tag>
     );
-  }
+  };
+
+  const getStatusBadge = (isCancelled: boolean) => {
+    return (
+      <Badge 
+        status={isCancelled ? 'error' : 'success'} 
+        text={isCancelled ? 'Cancelled' : 'Active'}
+      />
+    );
+  };
+
+  const columns: ColumnsType<Trade> = [
+    {
+      title: 'Trade ID',
+      dataIndex: 'tradeId',
+      key: 'tradeId',
+      sorter: (a, b) => a.tradeId - b.tradeId,
+      defaultSortOrder: 'descend',
+      width: 100,
+      render: (tradeId) => (
+        <Text strong style={{ fontFamily: 'monospace' }}>
+          #{tradeId}
+        </Text>
+      ),
+    },
+    {
+      title: 'Security',
+      dataIndex: 'securityCode',
+      key: 'securityCode',
+      sorter: (a, b) => a.securityCode.localeCompare(b.securityCode),
+      width: 120,
+      render: (securityCode) => (
+        <Tag color="blue" style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+          {securityCode}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Side',
+      dataIndex: 'side',
+      key: 'side',
+      width: 100,
+      render: (side) => getSideTag(side),
+      filters: [
+        { text: 'Buy', value: 'Buy' },
+        { text: 'Sell', value: 'Sell' },
+      ],
+      onFilter: (value, record) => record.side === value,
+    },
+    {
+      title: 'Quantity',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      sorter: (a, b) => a.quantity - b.quantity,
+      width: 120,
+      render: (quantity) => (
+        <Text 
+          strong 
+          style={{ 
+            color: quantity > 0 ? '#52c41a' : '#ff4d4f',
+            fontSize: '16px'
+          }}
+        >
+          {quantity > 0 ? '+' : ''}{quantity.toLocaleString()}
+        </Text>
+      ),
+    },
+    {
+      title: 'Version',
+      dataIndex: 'currentVersion',
+      key: 'currentVersion',
+      width: 100,
+      render: (version) => (
+        <Tag color="default">v{version}</Tag>
+      ),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'isCancelled',
+      key: 'isCancelled',
+      width: 120,
+      render: (isCancelled) => getStatusBadge(isCancelled),
+      filters: [
+        { text: 'Active', value: false },
+        { text: 'Cancelled', value: true },
+      ],
+      onFilter: (value, record) => record.isCancelled === value,
+    },
+
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 100,
+      render: (_, record) => (
+        <Space size="small">
+          <Tooltip title="View Details">
+            <Button 
+              type="text" 
+              icon={<EyeOutlined />} 
+              size="small"
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
+
+  const filteredTrades = trades.filter(trade => {
+    const matchesSearch = 
+      trade.tradeId.toString().includes(searchText) ||
+      trade.securityCode.toLowerCase().includes(searchText.toLowerCase()) ||
+      trade.side.toLowerCase().includes(searchText.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && !trade.isCancelled) ||
+      (statusFilter === 'cancelled' && trade.isCancelled);
+    
+    const matchesSide = sideFilter === 'all' || trade.side === sideFilter;
+    
+    return matchesSearch && matchesStatus && matchesSide;
+  });
+
+  const totalTrades = trades.length;
+  const activeTrades = trades.filter(t => !t.isCancelled).length;
+
+  const buyTrades = trades.filter(t => t.side === 'Buy').length;
+  const sellTrades = trades.filter(t => t.side === 'Sell').length;
 
   return (
-    <Paper elevation={3} sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Trades ({trades.length})
-      </Typography>
-      
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell><strong>Trade ID</strong></TableCell>
-              <TableCell><strong>Version</strong></TableCell>
-              <TableCell><strong>Security Code</strong></TableCell>
-              <TableCell><strong>Quantity</strong></TableCell>
-              <TableCell><strong>Side</strong></TableCell>
-              <TableCell><strong>Status</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {trades.map((trade) => (
-              <TableRow 
-                key={trade.tradeId}
-                sx={{
-                  backgroundColor: trade.isCancelled ? '#fafafa' : 'inherit',
-                  '&:hover': {
-                    backgroundColor: trade.isCancelled ? '#f5f5f5' : '#f8f9fa',
-                  }
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      {/* Header */}
+      <div>
+        <Title level={3}>
+          <HistoryOutlined style={{ marginRight: 8 }} />
+          Trades History
+        </Title>
+        <Text type="secondary">
+          View and manage all your trading transactions
+        </Text>
+      </div>
+
+      {/* Statistics */}
+      <Row gutter={[12, 12]}>
+        <Col xs={12} sm={12} md={6}>
+          <Card size="small">
+            <Statistic
+              title="Total Trades"
+              value={totalTrades}
+              prefix={<HistoryOutlined />}
+              valueStyle={{ color: '#1890ff', fontSize: isSmallScreen ? '16px' : '20px' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card size="small">
+            <Statistic
+              title="Active Trades"
+              value={activeTrades}
+              prefix={<RiseOutlined />}
+              valueStyle={{ color: '#52c41a', fontSize: isSmallScreen ? '16px' : '20px' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card size="small">
+            <Statistic
+              title="Buy Orders"
+              value={buyTrades}
+              prefix={<RiseOutlined />}
+              valueStyle={{ color: '#52c41a', fontSize: isSmallScreen ? '16px' : '20px' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card size="small">
+            <Statistic
+              title="Sell Orders"
+              value={sellTrades}
+              prefix={<FallOutlined />}
+              valueStyle={{ color: '#ff4d4f', fontSize: isSmallScreen ? '16px' : '20px' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Filters */}
+      <Card size="small">
+        <Row gutter={[12, 12]} align="middle">
+          <Col xs={24} sm={12} md={8}>
+            <Search
+              placeholder="Search trades..."
+              allowClear
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined />}
+              size="small"
+            />
+          </Col>
+          <Col xs={12} sm={12} md={4}>
+            <Select
+              placeholder="Status"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ width: '100%' }}
+              size="small"
+            >
+              <Option value="all">All Status</Option>
+              <Option value="active">Active</Option>
+              <Option value="cancelled">Cancelled</Option>
+            </Select>
+          </Col>
+          <Col xs={12} sm={12} md={4}>
+            <Select
+              placeholder="Side"
+              value={sideFilter}
+              onChange={setSideFilter}
+              style={{ width: '100%' }}
+              size="small"
+            >
+              <Option value="all">All Sides</Option>
+              <Option value="Buy">Buy</Option>
+              <Option value="Sell">Sell</Option>
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Space size="small" wrap>
+              <Button 
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  setSearchText('');
+                  setStatusFilter('all');
+                  setSideFilter('all');
                 }}
+                size="small"
               >
-                <TableCell>
-                  <Box display="flex" alignItems="center">
-                    <Typography variant="body2" fontWeight="bold">
-                      {trade.tradeId}
-                    </Typography>
-                  </Box>
-                </TableCell>
-                
-                <TableCell>
-                  <Chip 
-                    label={`v${trade.currentVersion}`}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                
-                <TableCell>
-                  <Typography variant="body2" fontWeight="medium">
-                    {trade.securityCode}
-                  </Typography>
-                </TableCell>
-                
-                <TableCell>
-                  <Typography variant="body2">
-                    {trade.quantity}
-                  </Typography>
-                </TableCell>
-                
-                <TableCell>
-                  <Chip 
-                    label={trade.side}
-                    color={getSideColor(trade.side) as any}
-                    size="small"
-                    variant="filled"
-                  />
-                </TableCell>
-                
-                <TableCell>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    {getActionIcon(trade)}
-                    <Chip 
-                      label={getActionLabel(trade)}
-                      color={getActionColor(trade) as any}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Paper>
+                <span style={{ display: isSmallScreen ? 'none' : 'inline' }}>Clear</span>
+              </Button>
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                {filteredTrades.length} of {totalTrades} trades
+              </Text>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={filteredTrades}
+          rowKey="tradeId"
+          pagination={{
+            pageSize: isSmallScreen ? 5 : 10,
+            showSizeChanger: !isSmallScreen,
+            showQuickJumper: !isSmallScreen,
+            showTotal: !isSmallScreen ? (total, range) => 
+              `${range[0]}-${range[1]} of ${total} trades` : undefined,
+            pageSizeOptions: isSmallScreen ? ['5', '10'] : ['5', '10', '20', '50'],
+            size: isSmallScreen ? 'small' : 'default',
+          }}
+          scroll={{ x: isSmallScreen ? 800 : 1200 }}
+          size={isSmallScreen ? 'small' : 'middle'}
+          locale={{
+            emptyText: (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="No trades found"
+              />
+            ),
+          }}
+        />
+      </Card>
+    </Space>
   );
 };
 

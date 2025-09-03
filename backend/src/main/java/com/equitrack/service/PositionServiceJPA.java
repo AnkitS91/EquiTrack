@@ -149,11 +149,8 @@ public class PositionServiceJPA {
             int impact = trade.getSide() == TransactionSide.Buy ? trade.getQuantity() : -trade.getQuantity();
             position.setQuantity(position.getQuantity() - impact);
             
-            if (position.getQuantity() == 0) {
-                positionRepository.delete(position);
-            } else {
-                positionRepository.save(position);
-            }
+            // Always save the position, even if quantity is 0
+            positionRepository.save(position);
         }
     }
 

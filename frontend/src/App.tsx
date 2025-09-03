@@ -1,121 +1,101 @@
 import React, { useState, useEffect } from 'react';
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Container,
-  Box,
-  Tabs,
-  Tab,
+  Layout,
+  Menu,
   Button,
-  Snackbar,
-  Alert,
-  CircularProgress,
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-} from '@mui/material';
+  message,
+  Spin,
+  Typography,
+  Space,
+  ConfigProvider,
+  theme,
+  Avatar,
+  Dropdown,
+  Badge,
+  Divider
+} from 'antd';
 import {
-  AccountBalance,
-  Add,
-  Refresh,
-  DataUsage,
-} from '@mui/icons-material';
-import { Position, Trade, Transaction } from './types';
-import { apiService } from './services/api';
+  DashboardOutlined,
+  PlusOutlined,
+  HistoryOutlined,
+  ReloadOutlined,
+  DatabaseOutlined,
+  DeleteOutlined,
+  UserOutlined,
+  SettingOutlined,
+  LogoutOutlined,
+  BellOutlined,
+  MenuOutlined
+} from '@ant-design/icons';
 import PositionsDashboard from './components/PositionsDashboard';
 import TransactionForm from './components/TransactionForm';
 import TradesTable from './components/TradesTable';
+import { Position, Trade } from './types';
+import { apiService } from './services/api';
+import { useResponsive } from './hooks/useResponsive';
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-  },
-});
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+const { Header, Sider, Content } = Layout;
+const { Title, Text } = Typography;
 
 function App() {
-  const [tabValue, setTabValue] = useState(0);
   const [positions, setPositions] = useState<Position[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info';
-  }>({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
+  const [loading, setLoading] = useState(false);
+  const [selectedMenu, setSelectedMenu] = useState('dashboard');
+  const [collapsed, setCollapsed] = useState(false);
+  const { isMobile, isSmallScreen } = useResponsive();
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const [positionsData, tradesData] = await Promise.all([
         apiService.getPositions(),
-        apiService.getTrades(),
+        apiService.getTrades()
       ]);
       setPositions(positionsData);
       setTrades(tradesData);
+      message.success('Data refreshed successfully');
     } catch (error) {
-      console.error('Error fetching data:', error);
-      showSnackbar('Failed to fetch data', 'error');
+      message.error('Failed to fetch data');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTransactionSubmit = async (transaction: Omit<Transaction, 'transactionId'>) => {
+  const handleTransactionSubmit = async (transaction: any) => {
+    setLoading(true);
     try {
-      const result = await apiService.addTransaction(transaction);
-      setPositions(result.positions);
-      await fetchData(); // Refresh trades as well
-      showSnackbar('Transaction added successfully!', 'success');
+      const response = await apiService.addTransaction(transaction);
+      setPositions(response.positions);
+      
+      // Refresh trades data to show the new trade
+      const tradesData = await apiService.getTrades();
+      setTrades(tradesData);
+      
+      message.success('Transaction added successfully');
+      setSelectedMenu('dashboard');
     } catch (error) {
-      console.error('Error adding transaction:', error);
-      showSnackbar('Failed to add transaction', 'error');
+      message.error('Failed to add transaction');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleLoadSampleData = async () => {
+    setLoading(true);
     try {
-      const result = await apiService.loadSampleData();
-      setPositions(result.positions);
-      await fetchData(); // Refresh trades as well
-      showSnackbar('Sample data loaded successfully!', 'success');
+      const response = await apiService.loadSampleData();
+      setPositions(response.positions);
+      
+      // Refresh trades data to show all trades
+      const tradesData = await apiService.getTrades();
+      setTrades(tradesData);
+      
+      message.success('Sample data loaded successfully');
     } catch (error) {
-      console.error('Error loading sample data:', error);
-      showSnackbar('Failed to load sample data', 'error');
+      message.error('Failed to load sample data');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -124,126 +104,196 @@ function App() {
       await apiService.resetData();
       setPositions([]);
       setTrades([]);
-      showSnackbar('Data reset successfully!', 'info');
+      message.success('Data reset successfully');
     } catch (error) {
-      console.error('Error resetting data:', error);
-      showSnackbar('Failed to reset data', 'error');
+      message.error('Failed to reset data');
     }
-  };
-
-  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info') => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-    });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+  const menuItems = [
+    {
+      key: 'dashboard',
+      icon: <DashboardOutlined />,
+      label: 'Positions Dashboard',
+    },
+    {
+      key: 'transaction',
+      icon: <PlusOutlined />,
+      label: 'Add Transaction',
+    },
+    {
+      key: 'trades',
+      icon: <HistoryOutlined />,
+      label: 'Trades History',
+    },
+  ];
+
+  const userMenuItems = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: 'Profile',
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Settings',
+    },
+    {
+      type: 'divider' as const,
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Logout',
+    },
+  ];
+
+  const renderContent = () => {
+    switch (selectedMenu) {
+      case 'dashboard':
+        return <PositionsDashboard positions={positions} isLoading={loading} />;
+      case 'transaction':
+        return <TransactionForm onSubmit={handleTransactionSubmit} onClear={() => {}} />;
+      case 'trades':
+        return <TradesTable trades={trades} />;
+      default:
+        return <PositionsDashboard positions={positions} isLoading={loading} />;
+    }
   };
 
-  if (loading) {
-    return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="100vh"
-        >
-          <CircularProgress size={60} />
-        </Box>
-      </ThemeProvider>
-    );
-  }
-
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box sx={{ flexGrow: 1 }}>
-        <AppBar position="static">
-          <Toolbar>
-            <AccountBalance sx={{ mr: 2 }} />
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              EquiTrack - Equity Position Tracker
-            </Typography>
-            <Button
-              color="inherit"
-              startIcon={<Refresh />}
-              onClick={fetchData}
-              sx={{ mr: 1 }}
-            >
-              Refresh
-            </Button>
-            <Button
-              color="inherit"
-              startIcon={<DataUsage />}
-              onClick={handleLoadSampleData}
-              sx={{ mr: 1 }}
-            >
-              Load Sample
-            </Button>
-            <Button
-              color="inherit"
-              variant="outlined"
-              onClick={handleResetData}
-            >
-              Reset
-            </Button>
-          </Toolbar>
-        </AppBar>
-
-        <Container maxWidth="xl" sx={{ mt: 3 }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={tabValue} onChange={handleTabChange} aria-label="EquiTrack tabs">
-              <Tab label="Positions Dashboard" />
-              <Tab label="Add Transaction" />
-              <Tab label="Trades" />
-            </Tabs>
-          </Box>
-
-          <TabPanel value={tabValue} index={0}>
-            <PositionsDashboard positions={positions} />
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={1}>
-            <TransactionForm
-              onSubmit={handleTransactionSubmit}
-              onClear={() => {}}
-            />
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={2}>
-            <TradesTable trades={trades} />
-          </TabPanel>
-        </Container>
-
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+    <ConfigProvider
+      theme={{
+        algorithm: theme.defaultAlgorithm,
+        token: {
+          colorPrimary: '#1890ff',
+          borderRadius: 6,
+        },
+      }}
+    >
+      <Layout style={{ minHeight: '100vh' }}>
+        <Sider 
+          trigger={null} 
+          collapsible 
+          collapsed={collapsed}
+          style={{
+            background: '#001529',
+            boxShadow: '2px 0 8px 0 rgba(29,35,41,.05)',
+          }}
         >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </ThemeProvider>
+          <div style={{ 
+            height: 64, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            borderBottom: '1px solid #303030'
+          }}>
+            <Title level={4} style={{ color: 'white', margin: 0 }}>
+              {collapsed ? 'ET' : 'EquiTrack'}
+            </Title>
+          </div>
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={[selectedMenu]}
+            items={menuItems}
+            onClick={({ key }) => setSelectedMenu(key)}
+            style={{ borderRight: 0 }}
+          />
+        </Sider>
+        
+        <Layout>
+          <Header style={{ 
+            padding: isMobile ? '0 8px' : '0 16px', 
+            background: '#fff',
+            boxShadow: '0 1px 4px rgba(0,21,41,.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <Space>
+              <Button
+                type="text"
+                icon={<MenuOutlined />}
+                onClick={() => setCollapsed(!collapsed)}
+                style={{ fontSize: '16px', width: isMobile ? 40 : 48, height: isMobile ? 40 : 48 }}
+              />
+              <Title level={4} style={{ margin: 0, fontSize: isMobile ? '16px' : '18px' }}>
+                {menuItems.find(item => item.key === selectedMenu)?.label}
+              </Title>
+            </Space>
+            
+            <Space size="small" wrap>
+              <Space size="small" wrap>
+                <Button 
+                  icon={<ReloadOutlined />} 
+                  onClick={fetchData}
+                  loading={loading}
+                  size="small"
+                >
+                  <span style={{ display: isSmallScreen ? 'none' : 'inline' }}>Refresh</span>
+                </Button>
+                <Button 
+                  icon={<DatabaseOutlined />} 
+                  onClick={handleLoadSampleData}
+                  loading={loading}
+                  size="small"
+                >
+                  <span style={{ display: isSmallScreen ? 'none' : 'inline' }}>Sample</span>
+                </Button>
+                <Button 
+                  icon={<DeleteOutlined />} 
+                  onClick={handleResetData}
+                  danger
+                  size="small"
+                >
+                  <span style={{ display: isSmallScreen ? 'none' : 'inline' }}>Reset</span>
+                </Button>
+              </Space>
+              
+              <Divider type="vertical" style={{ display: isSmallScreen ? 'none' : 'block' }} />
+              
+              <Space size="small">
+                <Badge count={3}>
+                  <Button 
+                    type="text" 
+                    icon={<BellOutlined />} 
+                    style={{ fontSize: '16px' }}
+                    size="small"
+                  />
+                </Badge>
+                
+                <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+                  <Space style={{ cursor: 'pointer' }}>
+                    <Avatar icon={<UserOutlined />} size="small" />
+                    <Text style={{ display: isSmallScreen ? 'none' : 'inline' }}>Admin</Text>
+                  </Space>
+                </Dropdown>
+              </Space>
+            </Space>
+          </Header>
+          
+          <Content style={{ 
+            margin: isMobile ? '8px' : isSmallScreen ? '16px' : '24px',
+            padding: isMobile ? '12px' : isSmallScreen ? '16px' : '24px',
+            background: '#f5f5f5',
+            borderRadius: 8,
+            minHeight: 280
+          }}>
+            <Spin spinning={loading} tip="Loading...">
+              {renderContent()}
+            </Spin>
+          </Content>
+        </Layout>
+      </Layout>
+    </ConfigProvider>
   );
 }
 

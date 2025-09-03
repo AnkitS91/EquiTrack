@@ -1,17 +1,31 @@
 import React from 'react';
 import {
-  Box,
-  Typography,
-  Grid,
-  Paper,
+  Row,
+  Col,
   Card,
-  CardContent,
-  Chip,
+  Statistic,
+  Typography,
+  Space,
+  Tag,
+  Progress,
+  Empty,
+  Spin,
   Alert,
-} from '@mui/material';
-import { TrendingUp, TrendingDown, AccountBalance } from '@mui/icons-material';
+  Grid
+} from 'antd';
+import {
+  RiseOutlined,
+  FallOutlined,
+  MinusOutlined,
+  DollarOutlined,
+  BarChartOutlined,
+  PieChartOutlined
+} from '@ant-design/icons';
 import { Position } from '../types';
-import PositionCard from './PositionCard';
+import { useResponsive } from '../hooks/useResponsive';
+
+const { Title, Text } = Typography;
+
 
 interface PositionsDashboardProps {
   positions: Position[];
@@ -22,6 +36,9 @@ const PositionsDashboard: React.FC<PositionsDashboardProps> = ({
   positions, 
   isLoading = false 
 }) => {
+  const { isMobile, isSmallScreen } = useResponsive();
+
+  
   const totalPositions = positions.length;
   const longPositions = positions.filter(p => p.quantity > 0).length;
   const shortPositions = positions.filter(p => p.quantity < 0).length;
@@ -29,175 +46,211 @@ const PositionsDashboard: React.FC<PositionsDashboardProps> = ({
   
   const totalExposure = positions.reduce((sum, p) => sum + Math.abs(p.quantity), 0);
   const netExposure = positions.reduce((sum, p) => sum + p.quantity, 0);
+  const totalLong = positions.filter(p => p.quantity > 0).reduce((sum, p) => sum + p.quantity, 0);
+  const totalShort = Math.abs(positions.filter(p => p.quantity < 0).reduce((sum, p) => sum + p.quantity, 0));
+
+  const getPositionColor = (quantity: number) => {
+    if (quantity > 0) return '#52c41a';
+    if (quantity < 0) return '#ff4d4f';
+    return '#8c8c8c';
+  };
+
+  const getPositionIcon = (quantity: number) => {
+    if (quantity > 0) return <RiseOutlined />;
+    if (quantity < 0) return <FallOutlined />;
+    return <MinusOutlined />;
+  };
+
+  const getPositionTag = (quantity: number) => {
+    if (quantity > 0) return <Tag color="success">LONG</Tag>;
+    if (quantity < 0) return <Tag color="error">SHORT</Tag>;
+    return <Tag color="default">FLAT</Tag>;
+  };
 
   if (isLoading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Loading positions...
-        </Typography>
-      </Box>
+      <div style={{ textAlign: 'center', padding: '50px' }}>
+        <Spin size="large" />
+        <div style={{ marginTop: 16 }}>
+          <Text type="secondary">Loading positions...</Text>
+        </div>
+      </div>
     );
   }
 
   if (positions.length === 0) {
     return (
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Positions Dashboard
-        </Typography>
-        <Alert severity="info">
-          No positions found. Add some transactions to see positions here.
-        </Alert>
-      </Paper>
+      <Card>
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <span>
+              <Text type="secondary">No positions found</Text>
+            </span>
+          }
+        >
+          <Text type="secondary">Add some transactions to see positions here.</Text>
+        </Empty>
+      </Card>
     );
   }
 
   return (
-    <Box>
-      {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="h4" fontWeight="bold">
-                    {totalPositions}
-                  </Typography>
-                  <Typography variant="body2">
-                    Total Positions
-                  </Typography>
-                </Box>
-                <AccountBalance sx={{ fontSize: 40, opacity: 0.8 }} />
-              </Box>
-            </CardContent>
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      {/* Summary Statistics */}
+      <Row gutter={[12, 12]}>
+        <Col xs={12} sm={12} md={6}>
+          <Card size="small">
+            <Statistic
+              title="Total Positions"
+              value={totalPositions}
+              prefix={<BarChartOutlined />}
+              valueStyle={{ color: '#1890ff', fontSize: isSmallScreen ? '18px' : '24px' }}
+            />
           </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)', color: 'white' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="h4" fontWeight="bold">
-                    {longPositions}
-                  </Typography>
-                  <Typography variant="body2">
-                    Long Positions
-                  </Typography>
-                </Box>
-                <TrendingUp sx={{ fontSize: 40, opacity: 0.8 }} />
-              </Box>
-            </CardContent>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card size="small">
+            <Statistic
+              title="Long Positions"
+              value={longPositions}
+              prefix={<RiseOutlined />}
+              valueStyle={{ color: '#52c41a', fontSize: isSmallScreen ? '18px' : '24px' }}
+            />
           </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)', color: 'white' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="h4" fontWeight="bold">
-                    {shortPositions}
-                  </Typography>
-                  <Typography variant="body2">
-                    Short Positions
-                  </Typography>
-                </Box>
-                <TrendingDown sx={{ fontSize: 40, opacity: 0.8 }} />
-              </Box>
-            </CardContent>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card size="small">
+            <Statistic
+              title="Short Positions"
+              value={shortPositions}
+              prefix={<FallOutlined />}
+              valueStyle={{ color: '#ff4d4f', fontSize: isSmallScreen ? '18px' : '24px' }}
+            />
           </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #9e9e9e 0%, #757575 100%)', color: 'white' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="h4" fontWeight="bold">
-                    {flatPositions}
-                  </Typography>
-                  <Typography variant="body2">
-                    Flat Positions
-                  </Typography>
-                </Box>
-                <AccountBalance sx={{ fontSize: 40, opacity: 0.8 }} />
-              </Box>
-            </CardContent>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card size="small">
+            <Statistic
+              title="Flat Positions"
+              value={flatPositions}
+              prefix={<MinusOutlined />}
+              valueStyle={{ color: '#8c8c8c', fontSize: isSmallScreen ? '18px' : '24px' }}
+            />
           </Card>
-        </Grid>
-      </Grid>
+        </Col>
+      </Row>
 
       {/* Exposure Summary */}
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Exposure Summary
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Box textAlign="center">
-              <Typography variant="h5" fontWeight="bold" color="primary">
-                {totalExposure.toLocaleString()}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Exposure
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Box textAlign="center">
-              <Typography 
-                variant="h5" 
-                fontWeight="bold" 
-                color={netExposure > 0 ? 'success.main' : netExposure < 0 ? 'error.main' : 'text.primary'}
-              >
-                {netExposure > 0 ? '+' : ''}{netExposure.toLocaleString()}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Net Exposure
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Box textAlign="center">
-              <Typography variant="h5" fontWeight="bold" color="success.main">
-                {positions.filter(p => p.quantity > 0).reduce((sum, p) => sum + p.quantity, 0).toLocaleString()}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Long
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Box textAlign="center">
-              <Typography variant="h5" fontWeight="bold" color="error.main">
-                {Math.abs(positions.filter(p => p.quantity < 0).reduce((sum, p) => sum + p.quantity, 0)).toLocaleString()}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Short
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
-      </Paper>
+      <Card title="Exposure Summary" extra={<PieChartOutlined />} size="small">
+        <Row gutter={[12, 12]}>
+          <Col xs={12} sm={12} md={6}>
+            <Statistic
+              title="Total Exposure"
+              value={totalExposure}
+              prefix={<DollarOutlined />}
+              valueStyle={{ color: '#1890ff', fontSize: isSmallScreen ? '16px' : '20px' }}
+            />
+          </Col>
+          <Col xs={12} sm={12} md={6}>
+            <Statistic
+              title="Net Exposure"
+              value={netExposure}
+              prefix={netExposure > 0 ? '+' : ''}
+              valueStyle={{ 
+                color: netExposure > 0 ? '#52c41a' : netExposure < 0 ? '#ff4d4f' : '#8c8c8c',
+                fontSize: isSmallScreen ? '16px' : '20px'
+              }}
+            />
+          </Col>
+          <Col xs={12} sm={12} md={6}>
+            <Statistic
+              title="Total Long"
+              value={totalLong}
+              prefix={<RiseOutlined />}
+              valueStyle={{ color: '#52c41a', fontSize: isSmallScreen ? '16px' : '20px' }}
+            />
+          </Col>
+          <Col xs={12} sm={12} md={6}>
+            <Statistic
+              title="Total Short"
+              value={totalShort}
+              prefix={<FallOutlined />}
+              valueStyle={{ color: '#ff4d4f', fontSize: isSmallScreen ? '16px' : '20px' }}
+            />
+          </Col>
+        </Row>
+        
+        {netExposure !== 0 && (
+          <div style={{ marginTop: 16 }}>
+            <Text type="secondary">Net Exposure Distribution:</Text>
+            <Progress
+              percent={Math.abs((netExposure / totalExposure) * 100)}
+              status={netExposure > 0 ? 'success' : 'exception'}
+              format={() => `${Math.abs(netExposure)} (${Math.abs((netExposure / totalExposure) * 100).toFixed(1)}%)`}
+            />
+          </div>
+        )}
+      </Card>
 
       {/* Positions Grid */}
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Current Positions ({positions.length})
-        </Typography>
-        
-        <Grid container spacing={3}>
+      <Card title={`Current Positions (${positions.length})`} size="small">
+        <Row gutter={[8, 8]}>
           {positions.map((position) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={position.securityCode}>
-              <PositionCard position={position} />
-            </Grid>
+            <Col xs={12} sm={8} md={6} lg={4} key={position.securityCode}>
+              <Card
+                size="small"
+                hoverable
+                style={{
+                  borderLeft: `4px solid ${getPositionColor(position.quantity)}`,
+                }}
+              >
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Title level={5} style={{ margin: 0, fontSize: isSmallScreen ? '14px' : '16px' }}>
+                      {position.securityCode}
+                    </Title>
+                    {getPositionIcon(position.quantity)}
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Statistic
+                      value={position.quantity}
+                      valueStyle={{ 
+                        color: getPositionColor(position.quantity),
+                        fontSize: isSmallScreen ? '16px' : '20px',
+                        fontWeight: 'bold'
+                      }}
+                      prefix={position.quantity > 0 ? '+' : ''}
+                    />
+                    {getPositionTag(position.quantity)}
+                  </div>
+                  
+                  <Text type="secondary" style={{ fontSize: '10px' }}>
+                    {position.quantity > 0 ? 'Net Long Position' : 
+                     position.quantity < 0 ? 'Net Short Position' : 'No Position'}
+                  </Text>
+                </Space>
+              </Card>
+            </Col>
           ))}
-        </Grid>
-      </Paper>
-    </Box>
+        </Row>
+      </Card>
+
+      {/* Performance Alert */}
+      {positions.length > 0 && (
+        <Alert
+          message="Portfolio Overview"
+          description={`You have ${totalPositions} active positions with a total exposure of ${totalExposure.toLocaleString()} units. ${
+            netExposure > 0 ? 'Your portfolio is net long.' : 
+            netExposure < 0 ? 'Your portfolio is net short.' : 
+            'Your portfolio is balanced.'
+          }`}
+          type="info"
+          showIcon
+        />
+      )}
+    </Space>
   );
 };
 
